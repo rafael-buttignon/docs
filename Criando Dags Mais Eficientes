@@ -1,0 +1,92 @@
+# **Criando de Dags Mais Eficientes**
+
+Conforme analisamos alguns recursos extras que o Airflow nos disponibiliza, percebemos que poderíamos ter mais eficiência nos nossos fluxos de pipelines de dados. Com isso o Airflow nos disponibiliza alguns recursos bem importante que vamos explorar nesse tópico:
+
+
+- <kbd>Pools</kbd> para limitar a alocação de recursos a um grupo de tarefas com base em uma métrica predefinida.
+
+- <kbd>Pesos de prioridade</kbd> para priorizar e alocar recursos para tarefas cruciais antes de outras.
+
+Como existem tantas DAGs, que às vezes exigem a execução de vários deles simultaneamente, torna-se crucial gerenciar a alocação dos recursos subjacentes. É essencial fazer isso para que o Airflow não **sobrecarregue** a infraestrutura ou prejudique tarefas **críticas** para os negócios devido a restrições de recursos, como o número de tarefas/DAGs que podem ser executados simultaneamente. Podemos realizar essa alocação de tarefas aos recursos usando o conceito de pools.
+
+
+### Por que utilizar pools diferentes ?
+
+A execução de todas as tarefas em um **único** pool pode ser problemática. Por exemplo, se uma instância do Airflow estiver utilizando todos os **slots** e exigir a execução de mais tarefas, as tarefas, independentemente de sua importância, serão **enfileiradas** até que um processo em andamento libere um local. Portanto, podemos criar um pool para tarefas críticas para os negócios e outro para tarefas não críticas e, de acordo, atribuir operações ao tipo de pool.
+
+Nesse caso o Airflow é essencialmente administrado pelo time da **Iris**, é apenas administradores conseguem criar novos Pools. Mas com a evolução da arquitetura 2.0, disponibilizamos uma nova regra de uso de pool é de prioridade por dag, que será explicada nos próximos tópicos!
+
+### Por que utilizar peso de prioridade ?
+
+Ao construir pipelines de big data, há momentos em que gostaríamos de priorizar um grupo de tarefas em detrimento de outros. Por exemplo, se tivermos várias fontes de dados e o processamento de algumas fontes de dados for mais crítico do que outras em um processo ETL, podemos configurar nosso fluxo de trabalho para **priorizar** essas tarefas.
+
+**Imagem exemplo Airflow:**
+![Imgur](https://miro.medium.com/max/1400/1*Xf-59mRMv6kUZ9mXHD3_YA.png)
+
+Podemos observar no DAG acima que o Airflow executa um conjunto de tarefas, ou seja, ETL para *data_source_1* antes de *data_source_2* . Podemos alcançá-lo definindo as seguintes configurações:
+
+Em nosso caso, a aplicação de **prioridade** sera aplicado dentro da Dag, explicitando a prioridade pelo **intervalo** de execução!
+
+<kbd>priority_weight</kbd> : O peso de prioridade é um atributo do operador que atribui prioridade a cada tarefa.
+
+<kbd>weight_rule</kbd> : A regra de peso determina o método para calcular os pesos das tarefas. Por default manteremos <kbd>absoluto</kbd> sempre.
+
+### Como isso se aplica a minha DAG?
+
+No caso precisaremos incluir dentro da nossa dag, apenas os campos **pool** e **priority_weight**. O parâmetro que você precisa passar vai depender do **intervalo de execução** de sua dag, pois para dags que possuem requisições de minutos não tem sentindo **priorizar**, pois ela sempre será executada após alguns minutos. 
+
+Caso sua dag possua esses **intervalos** de tempo de execuções, você ira aplicar esses parâmetros: 
+
+**Intervalo de Execução >= 1 Mês**
+```sh
+  priority_weight: 5
+  pool: 'critical_pool'
+
+```
+
+**Intervalo de Execução == 1 á 3 Semanas**
+```sh
+  priority_weight: 4
+  pool: 'hard_pool'
+
+```
+
+**Intervalo de Execução == 1 á 7 Dias**
+```sh
+  priority_weight: 3
+  pool: 'medium_pool'
+
+```
+
+**Intervalo de Execução == 3 á 23 Horas**
+```sh
+  priority_weight: 2
+  pool: 'basic_pool'
+
+```
+
+**Intervalo de Execução == 3 Minutos á 2 Horas**
+```sh
+
+Nesse caso você não ira precisar fazer nenhuma modificação, pois sua Dag 
+inicializará automaticamente a configuração "default".
+
+  priority_weight: 1
+  pool: 'default_pool'
+
+```
+
+**Imagem exemplo Correnteza:**
+![Imgur](https://i.imgur.com/ywAOzkq.png)
+
+Por fim são esses **parâmetros** que nós disponibilizara dags mais **eficientes**, tendo em vista que quanto maior a **prioridade** de sua dag, mais rápida ela entrara no fluxo de execução. Por isso seguir essas regras de **intervalos** de execuções e importantíssima para o bom funcionamento do seu pipeline de dados.
+
+> **Warning**: Os parâmetros de regras de prioridades e pool vão mudar com o tempo, então fique a tento essa documentação, para extrair o melhor para sua DAG!
+{.is-warning}
+
+
+### Conclusão
+
+A construção de pipelines de dados que utilizam a infraestrutura com **eficiência** é uma combinação de vários componentes. Este tópico explorou alguns desses conceitos inter-relacionados para que os pipelines possam ser dimensionados com base nos recursos subjacentes e no fluxo lógico.
+
+Quais quer outras dúvidas ou informações extras, por favor verificar a documentação oficial do Airflow ou comunicar o time da Iris para possíveis dúvidas!
